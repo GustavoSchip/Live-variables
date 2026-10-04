@@ -207,17 +207,101 @@ export const codeBlockFunc = (
 	try {
 		let codeBlock = args[0];
 		const lang = args[1];
+
 		const values = args
 			.slice(2)
 			.map((id) => vaultProperties.getProperty(id));
+
+		const stringifyValue = (value: any, indent = 0): string => {
+			if (value === null || value === undefined) {
+				return '';
+			}
+
+			if (typeof value !== 'object') {
+				return String(value);
+			}
+
+			const indentation = ' '.repeat(indent);
+
+			if (Array.isArray(value)) {
+				return value
+					.map((item) => {
+						if (
+							typeof item === 'object' &&
+							item !== null &&
+							!Array.isArray(item)
+						) {
+							const entries = Object.entries(item);
+
+							return entries
+								.map(([key, childValue], index) => {
+									const child = stringifyValue(
+										childValue,
+										indent + 4
+									);
+
+									if (index === 0) {
+										if (
+											typeof childValue === 'object' &&
+											childValue !== null
+										) {
+											return `${indentation}- ${key}:\n${child}`;
+										}
+
+										return `${indentation}- ${key}: ${child}`;
+									}
+
+									if (
+										typeof childValue === 'object' &&
+										childValue !== null
+									) {
+										return `${' '.repeat(indent + 2)}${key}:\n${child}`;
+									}
+
+									return `${' '.repeat(indent + 2)}${key}: ${child}`;
+								})
+								.join('\n');
+						}
+
+						if (typeof item === 'object' && item !== null) {
+							return `${indentation}-\n${stringifyValue(
+								item,
+								indent + 2
+							)}`;
+						}
+
+						return `${indentation}- ${String(item)}`;
+					})
+					.join('\n');
+			}
+
+			return Object.entries(value)
+				.map(([key, childValue]) => {
+					const child = stringifyValue(
+						childValue,
+						indent + 4
+					);
+
+					if (
+						typeof childValue === 'object' &&
+						childValue !== null
+					) {
+						return `${indentation}${key}:\n${child}`;
+					}
+
+					return `${indentation}${key}: ${child}`;
+				})
+				.join('\n');
+		};
+
 		values.forEach((value) => {
 			codeBlock = codeBlock.replace(
 				/\{\{(.*?)\}\}/,
-				value?.toString() ?? ''
+				stringifyValue(value)
 			);
 		});
-		const computedValue = `\n\`\`\`${lang}\n${codeBlock}\n\`\`\`\n`;
-		return unescape(computedValue);
+
+		return `\n\`\`\`${lang}\n${codeBlock}\n\`\`\`\n`;
 	} catch {
 		return undefined;
 	}
